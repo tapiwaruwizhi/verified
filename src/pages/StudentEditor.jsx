@@ -21,8 +21,9 @@ export default function StudentEditor() {
 
   const { data: assignments = [] } = useQuery({
     queryKey: ['assignments'],
-    queryFn: () => base44.entities.Assignment.filter({ status: 'active' }),
-    enabled: !!user
+    queryFn: () => base44.entities.Assignment.list('-created_date'),
+    enabled: !!user,
+    select: (data) => data.filter(a => a.status === 'active')
   });
 
   const createSessionMutation = useMutation({
@@ -55,10 +56,18 @@ export default function StudentEditor() {
       const pasteCount = events.filter(e => e.event_type === 'paste').length;
       const focusLostCount = events.filter(e => e.event_type === 'focus_lost').length;
       
+      // Get current session data for coherence score
+      const sessionData = await base44.entities.Session.filter({ id: currentSession.id });
+      const coherenceScore = sessionData[0]?.coherence_score || 100;
+
       // Calculate integrity score
       let integrityScore = 100;
       integrityScore -= pasteCount * 5; // -5 per paste
       integrityScore -= focusLostCount * 3; // -3 per focus loss
+      
+      // Apply coherence penalty
+      integrityScore = integrityScore * (coherenceScore / 100);
+      
       integrityScore = Math.max(0, Math.min(100, integrityScore));
 
       const endTime = new Date().toISOString();

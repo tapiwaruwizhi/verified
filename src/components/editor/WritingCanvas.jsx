@@ -44,6 +44,33 @@ export default function WritingCanvas({ sessionId, onEventCapture, initialText =
     }
   };
 
+  const calculateCoherence = (text) => {
+    // Detect gibberish/random typing patterns
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length < 10) return 100;
+
+    // Check for repeated characters (aaaa, 1111, etc.)
+    const repeatedPattern = words.filter(w => /(.)\1{3,}/.test(w)).length;
+    
+    // Check for keyboard mashing (asdfgh, qwerty patterns)
+    const keyboardPatterns = ['asdf', 'qwer', 'zxcv', 'hjkl', '1234', '5678'];
+    const mashingScore = words.filter(w => 
+      keyboardPatterns.some(p => w.toLowerCase().includes(p))
+    ).length;
+
+    // Check average word length (gibberish tends to be very short or very long)
+    const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / words.length;
+    const lengthAnomaly = avgWordLength < 2 || avgWordLength > 12;
+
+    // Calculate coherence penalty
+    let coherence = 100;
+    coherence -= (repeatedPattern / words.length) * 50;
+    coherence -= (mashingScore / words.length) * 40;
+    if (lengthAnomaly) coherence -= 20;
+
+    return Math.max(0, coherence);
+  };
+
   const handleKeyDown = (e) => {
     const now = Date.now();
     const flightTime = now - lastKeystrokeTime.current;
@@ -86,15 +113,25 @@ export default function WritingCanvas({ sessionId, onEventCapture, initialText =
     setText(e.target.value);
     setIsSaving(true);
     
-    // Debounced auto-save
+    // Debounced auto-save with coherence check
     clearTimeout(window.textSaveTimeout);
     window.textSaveTimeout = setTimeout(async () => {
       try {
+        const coherenceScore = calculateCoherence(e.target.value);
         await base44.entities.Session.update(sessionId, {
           final_text: e.target.value,
-          word_count: e.target.value.split(/\s+/).filter(Boolean).length
+          word_count: e.target.value.split(/\s+/).filter(Boolean).length,
+          coherence_score: coherenceScore
         });
         setIsSaving(false);
+
+        // Warn if gibberish detected
+        if (coherenceScore < 50) {
+          toast.warning('Low coherence detected', {
+            description: 'Your text appears to contain random characters. This will affect your integrity score.',
+            duration: 4000
+          });
+        }
       } catch (error) {
         console.error('Auto-save failed:', error);
         setIsSaving(false);

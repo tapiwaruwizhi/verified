@@ -22,11 +22,13 @@ export default function Layout({ children, currentPageName }) {
 
   const teacherNavItems = [
     { name: 'TeacherDashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { name: 'Assignments', label: 'Assignments', icon: FileText }
+    { name: 'Assignments', label: 'Assignments', icon: FileText },
+    { name: 'RevealRequests', label: 'Access Requests', icon: Shield }
   ];
 
   const studentNavItems = [
-    { name: 'StudentEditor', label: 'My Assignments', icon: FileText }
+    { name: 'StudentEditor', label: 'Write Essay', icon: FileText },
+    { name: 'MySubmissions', label: 'My Submissions', icon: LayoutDashboard }
   ];
 
   const navItems = user?.role === 'admin' ? teacherNavItems : studentNavItems;

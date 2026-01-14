@@ -3,6 +3,9 @@ import TeacherDashboard from './pages/TeacherDashboard';
 import SessionAnalysis from './pages/SessionAnalysis';
 import Assignments from './pages/Assignments';
 import Home from './pages/Home';
+import MySubmissions from './pages/MySubmissions';
+import StudentForensics from './pages/StudentForensics';
+import RevealRequests from './pages/RevealRequests';
 import __Layout from './Layout.jsx';
 
 
@@ -12,6 +15,9 @@ export const PAGES = {
     "SessionAnalysis": SessionAnalysis,
     "Assignments": Assignments,
     "Home": Home,
+    "MySubmissions": MySubmissions,
+    "StudentForensics": StudentForensics,
+    "RevealRequests": RevealRequests,
 }
 
 export const pagesConfig = {
