@@ -57,8 +57,7 @@ export default function CitationChecker({ events, finalText }) {
         content: pastedText,
         wordCount,
         isSignificant,
-        cited,
-        hasBibliography
+        cited
       };
     });
   };
