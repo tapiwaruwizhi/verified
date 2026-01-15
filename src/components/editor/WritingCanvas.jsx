@@ -1,23 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 export default function WritingCanvas({ sessionId, onEventCapture, initialText = '' }) {
   const [text, setText] = useState(initialText);
   const [isSaving, setIsSaving] = useState(false);
-  const textareaRef = useRef(null);
+  const quillRef = useRef(null);
   const lastKeystrokeTime = useRef(Date.now());
   const sessionStartTime = useRef(Date.now());
   const eventBuffer = useRef([]);
 
   const captureEvent = (eventType, payload = {}) => {
+    const editor = quillRef.current?.getEditor();
     const event = {
       session_id: sessionId,
       timestamp: Date.now() - sessionStartTime.current,
       event_type: eventType,
       payload: {
         ...payload,
-        position: textareaRef.current?.selectionStart || 0
+        position: editor?.getSelection()?.index || 0
       },
       text_snapshot: text
     };
@@ -93,34 +96,45 @@ export default function WritingCanvas({ sessionId, onEventCapture, initialText =
     }
   };
 
-  const handlePaste = (e) => {
-    const pastedText = e.clipboardData.getData('text');
-    const wordCount = pastedText.split(/\s+/).filter(Boolean).length;
+  const handlePaste = () => {
+    setTimeout(() => {
+      const editor = quillRef.current?.getEditor();
+      if (!editor) return;
+      
+      const selection = editor.getSelection();
+      if (!selection) return;
+      
+      const pastedText = editor.getText(selection.index, selection.length);
+      const wordCount = pastedText.split(/\s+/).filter(Boolean).length;
 
-    captureEvent('paste', { 
-      text: pastedText,
-      length: pastedText.length,
-      word_count: wordCount
-    });
+      if (wordCount > 5) {
+        captureEvent('paste', { 
+          text: pastedText,
+          length: pastedText.length,
+          word_count: wordCount
+        });
 
-    toast.warning('Paste Recorded. Please Cite.', {
-      description: `${wordCount} words detected. Add proper citations.`,
-      duration: 5000
-    });
+        toast.warning('Paste Recorded. Please Cite.', {
+          description: `${wordCount} words detected. Add proper citations.`,
+          duration: 5000
+        });
+      }
+    }, 0);
   };
 
-  const handleChange = (e) => {
-    setText(e.target.value);
+  const handleChange = (content, delta, source, editor) => {
+    const plainText = editor.getText();
+    setText(content);
     setIsSaving(true);
     
     // Debounced auto-save with coherence check
     clearTimeout(window.textSaveTimeout);
     window.textSaveTimeout = setTimeout(async () => {
       try {
-        const coherenceScore = calculateCoherence(e.target.value);
+        const coherenceScore = calculateCoherence(plainText);
         await base44.entities.Session.update(sessionId, {
-          final_text: e.target.value,
-          word_count: e.target.value.split(/\s+/).filter(Boolean).length,
+          final_text: content,
+          word_count: plainText.split(/\s+/).filter(Boolean).length,
           coherence_score: coherenceScore
         });
         setIsSaving(false);
@@ -196,25 +210,42 @@ export default function WritingCanvas({ sessionId, onEventCapture, initialText =
     };
   }, []);
 
+  const modules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      [{ 'indent': '-1'}, { 'indent': '+1' }],
+      ['link', 'blockquote'],
+      [{ 'align': [] }],
+      ['clean']
+    ]
+  };
+
+  const formats = [
+    'header',
+    'bold', 'italic', 'underline', 'strike',
+    'list', 'bullet', 'indent',
+    'link', 'blockquote', 'align'
+  ];
+
   return (
-    <div className="relative w-full h-full">
-      <textarea
-        ref={textareaRef}
+    <div className="relative w-full h-full flex flex-col">
+      <ReactQuill
+        ref={quillRef}
+        theme="snow"
         value={text}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        onPaste={handlePaste}
-        placeholder="Begin writing..."
-        className="w-full h-full p-12 text-lg leading-relaxed resize-none focus:outline-none bg-white text-slate-900 font-serif"
-        style={{ 
-          lineHeight: '2',
-          fontFamily: 'Georgia, serif'
-        }}
-        spellCheck="true"
+        modules={modules}
+        formats={formats}
+        placeholder="Begin writing your essay..."
+        className="flex-1 bg-white"
+        style={{ height: 'calc(100% - 100px)' }}
       />
       
       {/* Live Status Indicator */}
-      <div className="absolute top-4 right-4 flex items-center gap-2 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full border border-slate-200 shadow-sm">
+      <div className="absolute top-4 right-4 flex items-center gap-2 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full border border-slate-200 shadow-sm z-10">
         <div className={`w-2 h-2 rounded-full ${isSaving ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
         <span className="text-xs text-slate-600">
           {isSaving ? 'Saving Process...' : 'Process Recorded'}
@@ -222,11 +253,29 @@ export default function WritingCanvas({ sessionId, onEventCapture, initialText =
       </div>
 
       {/* Word Count */}
-      <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full border border-slate-200 shadow-sm">
+      <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full border border-slate-200 shadow-sm z-10">
         <span className="text-xs text-slate-600 font-medium">
-          {text.split(/\s+/).filter(Boolean).length} words
+          {text ? quillRef.current?.getEditor().getText().split(/\s+/).filter(Boolean).length || 0 : 0} words
         </span>
       </div>
+
+      <style jsx>{`
+        :global(.ql-container) {
+          font-family: Georgia, serif;
+          font-size: 16px;
+          line-height: 1.8;
+        }
+        :global(.ql-editor) {
+          padding: 3rem;
+          min-height: 100%;
+        }
+        :global(.ql-toolbar) {
+          border-top: none !important;
+          border-left: none !important;
+          border-right: none !important;
+          background: #f8fafc;
+        }
+      `}</style>
     </div>
   );
 }
