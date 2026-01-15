@@ -3,8 +3,10 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Send } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { format, differenceInDays, isPast } from 'date-fns';
 import WritingCanvas from '../components/editor/WritingCanvas';
 import { toast } from 'sonner';
 
@@ -17,6 +19,19 @@ export default function StudentEditor() {
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => navigate('/'));
+    
+    // Check URL params for specific assignment or course
+    const params = new URLSearchParams(window.location.search);
+    const assignmentId = params.get('assignment');
+    const courseId = params.get('course');
+    
+    if (assignmentId) {
+      // Auto-select assignment from URL
+      setTimeout(() => {
+        const assignment = assignments.find(a => a.id === assignmentId);
+        if (assignment) handleStartAssignment(assignment);
+      }, 500);
+    }
   }, []);
 
   const { data: assignments = [] } = useQuery({
@@ -106,6 +121,14 @@ export default function StudentEditor() {
   }
 
   if (!currentSession) {
+    // Check if coming from course or assignment URL
+    const params = new URLSearchParams(window.location.search);
+    const courseId = params.get('course');
+
+    const filteredAssignments = courseId 
+      ? assignments.filter(a => a.course_id === courseId)
+      : assignments;
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
         <div className="max-w-4xl mx-auto">
@@ -115,35 +138,56 @@ export default function StudentEditor() {
           </div>
 
           <div className="grid gap-4">
-            {assignments.map(assignment => (
-              <Card key={assignment.id} className="p-6 hover:shadow-lg transition-shadow">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-slate-900 mb-2">
-                      {assignment.title}
-                    </h3>
-                    <p className="text-slate-600 mb-4 whitespace-pre-wrap">
-                      {assignment.prompt}
-                    </p>
-                    <div className="flex items-center gap-4 text-sm text-slate-500">
-                      <span>{assignment.subject}</span>
-                      <span>•</span>
-                      <span>{assignment.grade_level}</span>
-                      <span>•</span>
-                      <span>{assignment.word_target} words</span>
-                    </div>
-                  </div>
-                  <Button
-                    onClick={() => handleStartAssignment(assignment)}
-                    className="ml-4 bg-slate-900 hover:bg-slate-800"
-                  >
-                    Start Writing
-                  </Button>
-                </div>
-              </Card>
-            ))}
+            {filteredAssignments.map(assignment => {
+              const dueDate = assignment.due_date ? new Date(assignment.due_date) : null;
+              const isOverdue = dueDate && isPast(dueDate);
+              const isDueSoon = dueDate && differenceInDays(dueDate, new Date()) <= 3;
 
-            {assignments.length === 0 && (
+              return (
+                <Card key={assignment.id} className={`p-6 hover:shadow-lg transition-shadow ${
+                  isOverdue ? 'border-rose-300 border-2' : isDueSoon ? 'border-amber-300 border-2' : ''
+                }`}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-xl font-semibold text-slate-900">
+                          {assignment.title}
+                        </h3>
+                        {dueDate && (
+                          <Badge variant="outline" className={`${
+                            isOverdue 
+                              ? 'border-rose-300 bg-rose-50 text-rose-700'
+                              : isDueSoon
+                              ? 'border-amber-300 bg-amber-50 text-amber-700'
+                              : 'border-slate-300 bg-slate-50 text-slate-700'
+                          }`}>
+                            Due {format(dueDate, 'MMM d, h:mm a')}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-slate-600 mb-4 whitespace-pre-wrap line-clamp-3">
+                        {assignment.prompt}
+                      </p>
+                      <div className="flex items-center gap-4 text-sm text-slate-500">
+                        <span>{assignment.subject}</span>
+                        <span>•</span>
+                        <span>{assignment.grade_level}</span>
+                        <span>•</span>
+                        <span>{assignment.word_target} words</span>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => handleStartAssignment(assignment)}
+                      className="ml-4 bg-slate-900 hover:bg-slate-800"
+                    >
+                      Start Writing
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+
+            {filteredAssignments.length === 0 && (
               <div className="text-center py-12 text-slate-500">
                 No active assignments available
               </div>

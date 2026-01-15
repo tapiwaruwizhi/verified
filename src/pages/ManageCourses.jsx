@@ -7,72 +7,74 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, Save, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function Assignments() {
+export default function ManageCourses() {
   const queryClient = useQueryClient();
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
-    course_id: '',
-    title: '',
-    prompt: '',
+    name: '',
+    code: '',
     subject: 'English',
     grade_level: 'Grade 10',
-    word_target: 500,
-    due_date: '',
-    status: 'draft'
+    teacher_name: '',
+    teacher_email: '',
+    description: '',
+    color: 'blue',
+    status: 'active'
   });
 
-  const { data: assignments = [], isLoading } = useQuery({
-    queryKey: ['assignments'],
-    queryFn: () => base44.entities.Assignment.list('-created_date')
-  });
-
-  const { data: courses = [] } = useQuery({
+  const { data: courses = [], isLoading } = useQuery({
     queryKey: ['courses'],
-    queryFn: () => base44.entities.Course.filter({ status: 'active' })
+    queryFn: () => base44.entities.Course.list('-created_date')
+  });
+
+  const { data: assignments = [] } = useQuery({
+    queryKey: ['assignments'],
+    queryFn: () => base44.entities.Assignment.list()
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Assignment.create(data),
+    mutationFn: (data) => base44.entities.Course.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['assignments']);
+      queryClient.invalidateQueries(['courses']);
       setIsCreating(false);
       resetForm();
-      toast.success('Assignment created');
+      toast.success('Course created');
     }
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Assignment.update(id, data),
+    mutationFn: ({ id, data }) => base44.entities.Course.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries(['assignments']);
+      queryClient.invalidateQueries(['courses']);
       setEditingId(null);
       resetForm();
-      toast.success('Assignment updated');
+      toast.success('Course updated');
     }
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Assignment.delete(id),
+    mutationFn: (id) => base44.entities.Course.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries(['assignments']);
-      toast.success('Assignment deleted');
+      queryClient.invalidateQueries(['courses']);
+      toast.success('Course deleted');
     }
   });
 
   const resetForm = () => {
     setFormData({
-      course_id: '',
-      title: '',
-      prompt: '',
+      name: '',
+      code: '',
       subject: 'English',
       grade_level: 'Grade 10',
-      word_target: 500,
-      due_date: '',
-      status: 'draft'
+      teacher_name: '',
+      teacher_email: '',
+      description: '',
+      color: 'blue',
+      status: 'active'
     });
   };
 
@@ -85,17 +87,18 @@ export default function Assignments() {
     }
   };
 
-  const handleEdit = (assignment) => {
-    setEditingId(assignment.id);
+  const handleEdit = (course) => {
+    setEditingId(course.id);
     setFormData({
-      course_id: assignment.course_id || '',
-      title: assignment.title,
-      prompt: assignment.prompt,
-      subject: assignment.subject,
-      grade_level: assignment.grade_level,
-      word_target: assignment.word_target,
-      due_date: assignment.due_date ? assignment.due_date.split('T')[0] + 'T' + assignment.due_date.split('T')[1].substring(0,5) : '',
-      status: assignment.status
+      name: course.name,
+      code: course.code || '',
+      subject: course.subject,
+      grade_level: course.grade_level,
+      teacher_name: course.teacher_name || '',
+      teacher_email: course.teacher_email || '',
+      description: course.description || '',
+      color: course.color || 'blue',
+      status: course.status
     });
     setIsCreating(true);
   };
@@ -106,13 +109,28 @@ export default function Assignments() {
     resetForm();
   };
 
+  const getCourseAssignmentCount = (courseId) => {
+    return assignments.filter(a => a.course_id === courseId).length;
+  };
+
+  const colorOptions = [
+    { value: 'blue', label: 'Blue' },
+    { value: 'emerald', label: 'Emerald' },
+    { value: 'purple', label: 'Purple' },
+    { value: 'amber', label: 'Amber' },
+    { value: 'rose', label: 'Rose' },
+    { value: 'indigo', label: 'Indigo' },
+    { value: 'pink', label: 'Pink' },
+    { value: 'slate', label: 'Slate' }
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Writing Assignments</h1>
-            <p className="text-slate-600">Manage prompts for process-based assessment</p>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Manage Courses</h1>
+            <p className="text-slate-600">Organize assignments into courses for students</p>
           </div>
           {!isCreating && (
             <Button
@@ -120,7 +138,7 @@ export default function Assignments() {
               className="bg-slate-900 hover:bg-slate-800 flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
-              New Assignment
+              New Course
             </Button>
           )}
         </div>
@@ -130,51 +148,42 @@ export default function Assignments() {
           <Card className="mb-6 shadow-md border-slate-200">
             <CardHeader className="border-b border-slate-100">
               <CardTitle className="text-lg">
-                {editingId ? 'Edit Assignment' : 'Create New Assignment'}
+                {editingId ? 'Edit Course' : 'Create New Course'}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="course_id">Course (Optional)</Label>
-                  <Select
-                    value={formData.course_id}
-                    onValueChange={(value) => setFormData({ ...formData, course_id: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a course or leave blank" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={null}>No Course (Standalone)</SelectItem>
-                      {courses.map(course => (
-                        <SelectItem key={course.id} value={course.id}>
-                          {course.name} ({course.code || course.subject})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="name">Course Name</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="e.g., IB English HL"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="code">Course Code</Label>
+                    <Input
+                      id="code"
+                      value={formData.code}
+                      onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                      placeholder="e.g., ENG-HL-12"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="title">Assignment Title</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="e.g., WWI Causes Analysis"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="prompt">Writing Prompt</Label>
+                  <Label htmlFor="description">Description</Label>
                   <Textarea
-                    id="prompt"
-                    value={formData.prompt}
-                    onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
-                    placeholder="Enter the detailed writing prompt..."
-                    rows={6}
-                    required
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Brief course description..."
+                    rows={3}
                   />
                 </div>
 
@@ -192,6 +201,9 @@ export default function Assignments() {
                         <SelectItem value="English">English</SelectItem>
                         <SelectItem value="History">History</SelectItem>
                         <SelectItem value="Science">Science</SelectItem>
+                        <SelectItem value="Mathematics">Mathematics</SelectItem>
+                        <SelectItem value="Languages">Languages</SelectItem>
+                        <SelectItem value="Arts">Arts</SelectItem>
                         <SelectItem value="TOK">Theory of Knowledge</SelectItem>
                         <SelectItem value="Extended Essay">Extended Essay</SelectItem>
                         <SelectItem value="Other">Other</SelectItem>
@@ -220,26 +232,47 @@ export default function Assignments() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="word_target">Target Word Count</Label>
+                    <Label htmlFor="teacher_name">Teacher Name</Label>
                     <Input
-                      id="word_target"
-                      type="number"
-                      value={formData.word_target}
-                      onChange={(e) => setFormData({ ...formData, word_target: parseInt(e.target.value) })}
-                      min="100"
+                      id="teacher_name"
+                      value={formData.teacher_name}
+                      onChange={(e) => setFormData({ ...formData, teacher_name: e.target.value })}
+                      placeholder="Teacher's name"
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="due_date">Due Date & Time</Label>
+                    <Label htmlFor="teacher_email">Teacher Email</Label>
                     <Input
-                      id="due_date"
-                      type="datetime-local"
-                      value={formData.due_date}
-                      onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                      id="teacher_email"
+                      type="email"
+                      value={formData.teacher_email}
+                      onChange={(e) => setFormData({ ...formData, teacher_email: e.target.value })}
+                      placeholder="teacher@school.com"
                     />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="color">Display Color</Label>
+                    <Select
+                      value={formData.color}
+                      onValueChange={(value) => setFormData({ ...formData, color: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {colorOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div>
@@ -252,9 +285,7 @@ export default function Assignments() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="draft">Draft</SelectItem>
                         <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
                         <SelectItem value="archived">Archived</SelectItem>
                       </SelectContent>
                     </Select>
@@ -276,43 +307,55 @@ export default function Assignments() {
           </Card>
         )}
 
-        {/* Assignments List */}
+        {/* Courses List */}
         <div className="grid gap-4">
-          {assignments.map(assignment => (
-            <Card key={assignment.id} className="shadow-md hover:shadow-lg transition-shadow">
+          {courses.map(course => (
+            <Card key={course.id} className="shadow-md hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
+                      <BookOpen className="w-5 h-5 text-slate-600" />
                       <h3 className="text-xl font-semibold text-slate-900">
-                        {assignment.title}
+                        {course.name}
                       </h3>
+                      {course.code && (
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
+                          {course.code}
+                        </span>
+                      )}
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        assignment.status === 'active'
+                        course.status === 'active'
                           ? 'bg-emerald-100 text-emerald-800'
-                          : assignment.status === 'draft'
-                          ? 'bg-amber-100 text-amber-800'
                           : 'bg-slate-100 text-slate-800'
                       }`}>
-                        {assignment.status}
+                        {course.status}
                       </span>
                     </div>
-                    <p className="text-slate-600 mb-4 whitespace-pre-wrap line-clamp-3">
-                      {assignment.prompt}
-                    </p>
+                    {course.description && (
+                      <p className="text-slate-600 mb-3">{course.description}</p>
+                    )}
                     <div className="flex items-center gap-4 text-sm text-slate-500">
-                      <span>{assignment.subject}</span>
+                      <span>{course.subject}</span>
                       <span>•</span>
-                      <span>{assignment.grade_level}</span>
+                      <span>{course.grade_level}</span>
+                      {course.teacher_name && (
+                        <>
+                          <span>•</span>
+                          <span>{course.teacher_name}</span>
+                        </>
+                      )}
                       <span>•</span>
-                      <span>{assignment.word_target} words</span>
+                      <span className="font-medium text-slate-700">
+                        {getCourseAssignmentCount(course.id)} assignments
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-4">
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleEdit(assignment)}
+                      onClick={() => handleEdit(course)}
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
@@ -320,8 +363,8 @@ export default function Assignments() {
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        if (confirm('Delete this assignment?')) {
-                          deleteMutation.mutate(assignment.id);
+                        if (confirm('Delete this course? Assignments will remain but be unassigned.')) {
+                          deleteMutation.mutate(course.id);
                         }
                       }}
                     >
@@ -333,9 +376,9 @@ export default function Assignments() {
             </Card>
           ))}
 
-          {assignments.length === 0 && !isCreating && (
+          {courses.length === 0 && !isCreating && (
             <div className="text-center py-12 text-slate-500">
-              No assignments yet. Create your first assignment to get started.
+              No courses yet. Create your first course to organize assignments.
             </div>
           )}
         </div>
