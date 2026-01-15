@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, Shield } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { ArrowLeft, Download, Shield, Award, Save } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 import IntegrityBadge from '../components/analytics/IntegrityBadge';
 import TimelinePlayer from '../components/analytics/TimelinePlayer';
 import WPMGraph from '../components/analytics/WPMGraph';
@@ -14,9 +18,13 @@ import CitationChecker from '../components/analytics/CitationChecker';
 
 export default function SessionAnalysis() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [sessionId, setSessionId] = useState(null);
   const [currentTimelinePosition, setCurrentTimelinePosition] = useState(0);
   const [displayedText, setDisplayedText] = useState('');
+  const [isGrading, setIsGrading] = useState(false);
+  const [grade, setGrade] = useState('');
+  const [feedback, setFeedback] = useState('');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -40,6 +48,36 @@ export default function SessionAnalysis() {
     queryFn: () => base44.entities.Assignment.filter({ id: session.assignment_id }).then(r => r[0]),
     enabled: !!session?.assignment_id
   });
+
+  const gradeMutation = useMutation({
+    mutationFn: async ({ grade, feedback }) => {
+      return base44.entities.Session.update(sessionId, {
+        grade: parseFloat(grade),
+        feedback,
+        status: 'reviewed'
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['session', sessionId]);
+      setIsGrading(false);
+      toast.success('Grade saved successfully');
+    }
+  });
+
+  const handleSaveGrade = () => {
+    if (!grade || grade < 0 || grade > 100) {
+      toast.error('Please enter a valid grade (0-100)');
+      return;
+    }
+    gradeMutation.mutate({ grade, feedback });
+  };
+
+  useEffect(() => {
+    if (session?.grade !== undefined && session?.grade !== null) {
+      setGrade(session.grade.toString());
+      setFeedback(session.feedback || '');
+    }
+  }, [session]);
 
   // Update displayed text based on timeline position
   useEffect(() => {
@@ -111,14 +149,24 @@ Generated: ${format(new Date(), 'PPpp')}
               <ArrowLeft className="w-4 h-4" />
               Back to Dashboard
             </Button>
-            <Button
-              onClick={handleExportCertificate}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Export Certificate
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setIsGrading(!isGrading)}
+                variant={isGrading ? "default" : "outline"}
+                className="flex items-center gap-2"
+              >
+                <Award className="w-4 h-4" />
+                {isGrading ? 'Cancel Grading' : 'Grade Assignment'}
+              </Button>
+              <Button
+                onClick={handleExportCertificate}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Export Certificate
+              </Button>
+            </div>
           </div>
           
           <div className="flex items-start justify-between">
@@ -132,6 +180,12 @@ Generated: ${format(new Date(), 'PPpp')}
                 <span>{session.student_email}</span>
                 <span>•</span>
                 <span>Submitted {format(new Date(session.end_time), 'PPp')}</span>
+                {session.grade !== undefined && session.grade !== null && (
+                  <>
+                    <span>•</span>
+                    <span className="font-semibold text-slate-900">Grade: {session.grade}%</span>
+                  </>
+                )}
               </div>
             </div>
             <IntegrityBadge score={session.integrity_score} size="lg" />
@@ -141,6 +195,65 @@ Generated: ${format(new Date(), 'PPpp')}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto p-6">
+        {/* Grading Section */}
+        {isGrading && (
+          <Card className="mb-6 shadow-md border-blue-200">
+            <CardHeader className="border-b border-slate-100 bg-blue-50">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Award className="w-5 h-5 text-blue-600" />
+                Grade Assignment
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-1">
+                  <Label htmlFor="grade">Grade (0-100)</Label>
+                  <Input
+                    id="grade"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={grade}
+                    onChange={(e) => setGrade(e.target.value)}
+                    placeholder="85"
+                    className="mt-2 text-2xl font-bold text-center"
+                  />
+                  <p className="text-xs text-slate-500 mt-2 text-center">
+                    Current integrity: {session.integrity_score}%
+                  </p>
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="feedback">Feedback (Optional)</Label>
+                  <Textarea
+                    id="feedback"
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    placeholder="Provide constructive feedback on the student's work..."
+                    rows={4}
+                    className="mt-2"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsGrading(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveGrade}
+                  disabled={gradeMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  Save Grade
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Panel: Document & Struggle Map */}
           <div className="space-y-6">

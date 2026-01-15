@@ -116,6 +116,7 @@ export default function TeacherDashboard() {
                     <th className="text-left p-4 text-sm font-semibold text-slate-700">Assignment</th>
                     <th className="text-left p-4 text-sm font-semibold text-slate-700">Submitted</th>
                     <th className="text-left p-4 text-sm font-semibold text-slate-700">Words</th>
+                    <th className="text-left p-4 text-sm font-semibold text-slate-700">Grade</th>
                     <th className="text-left p-4 text-sm font-semibold text-slate-700">Integrity</th>
                     <th className="text-left p-4 text-sm font-semibold text-slate-700">Status</th>
                     <th className="text-left p-4 text-sm font-semibold text-slate-700">Action</th>
@@ -140,6 +141,20 @@ export default function TeacherDashboard() {
                         </td>
                         <td className="p-4 text-sm text-slate-700 font-medium">
                           {session.word_count || 0}
+                        </td>
+                        <td className="p-4">
+                          {session.grade !== undefined && session.grade !== null ? (
+                            <span className={`text-base font-bold ${
+                              session.grade >= 90 ? 'text-emerald-600' :
+                              session.grade >= 80 ? 'text-blue-600' :
+                              session.grade >= 70 ? 'text-amber-600' :
+                              'text-rose-600'
+                            }`}>
+                              {session.grade}%
+                            </span>
+                          ) : (
+                            <span className="text-sm text-slate-400">-</span>
+                          )}
                         </td>
                         <td className="p-4">
                           <IntegrityBadge score={session.integrity_score || 0} size="sm" showLabel={false} />

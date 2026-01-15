@@ -75,10 +75,19 @@ export default function StudentEditor() {
       const sessionData = await base44.entities.Session.filter({ id: currentSession.id });
       const coherenceScore = sessionData[0]?.coherence_score || 100;
 
-      // Calculate integrity score
+      // Calculate integrity score with strict paste penalties
       let integrityScore = 100;
-      integrityScore -= pasteCount * 5; // -5 per paste
-      integrityScore -= focusLostCount * 3; // -3 per focus loss
+      
+      // Severe penalty for large pastes (>100 words)
+      const largePastes = events.filter(e => {
+        if (e.event_type !== 'paste') return false;
+        const wordCount = (e.payload?.text || '').split(/\s+/).filter(Boolean).length;
+        return wordCount > 100;
+      }).length;
+      
+      integrityScore -= largePastes * 30; // -30% per large paste
+      integrityScore -= (pasteCount - largePastes) * 5; // -5% per regular paste
+      integrityScore -= focusLostCount * 3; // -3% per focus loss
       
       // Apply coherence penalty
       integrityScore = integrityScore * (coherenceScore / 100);

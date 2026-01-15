@@ -15,24 +15,42 @@ export default function CitationChecker({ events, finalText }) {
       // Check if paste is significant (>50 words)
       const isSignificant = wordCount > 50;
 
-      // Simple citation detection
-      const hasQuotes = pastedText.includes('"') || pastedText.includes("'");
-      const hasCitationMarkers = /\(.*\d{4}.*\)|[\[\(]\d+[\]\)]/.test(pastedText);
+      // STRICT citation detection - only accept explicit citation formats
+      // Look for actual citations WITHIN the pasted text itself
+      const hasInTextCitation = /\(.*\d{4}.*\)|[\[\(]\d+[\]\)]/.test(pastedText);
+      const hasQuotationMarks = /[""].*[""]/.test(pastedText); // Must have opening AND closing quotes
       
-      // Check if text appears in final document with citation context
-      const searchContext = finalText.substring(
-        Math.max(0, finalText.indexOf(pastedText.substring(0, 50)) - 200),
-        finalText.indexOf(pastedText.substring(0, 50)) + pastedText.length + 200
+      // Check if pasted text appears in final document
+      const pasteFirstWords = pastedText.substring(0, Math.min(100, pastedText.length));
+      const foundInFinal = finalText.includes(pasteFirstWords);
+      
+      if (!foundInFinal) {
+        // Text was deleted or heavily edited - likely not plagiarism
+        return {
+          timestamp: event.timestamp,
+          content: pastedText,
+          wordCount,
+          isSignificant,
+          cited: true, // Give benefit of doubt if removed
+          hasBibliography: false
+        };
+      }
+      
+      // Find where this paste appears in final text
+      const pasteIndex = finalText.indexOf(pasteFirstWords);
+      const contextBefore = finalText.substring(Math.max(0, pasteIndex - 100), pasteIndex);
+      const contextAfter = finalText.substring(
+        pasteIndex + pastedText.length,
+        Math.min(finalText.length, pasteIndex + pastedText.length + 100)
       );
       
-      const hasBibliography = finalText.toLowerCase().includes('bibliography') || 
-                             finalText.toLowerCase().includes('references') ||
-                             finalText.toLowerCase().includes('works cited');
+      // Check for citation NEAR the pasted content in final text
+      const hasCitationNearby = 
+        /\(.*\d{4}.*\)|[\[\(]\d+[\]\)]/.test(contextBefore) ||
+        /\(.*\d{4}.*\)|[\[\(]\d+[\]\)]/.test(contextAfter);
       
-      const hasCitationInContext = /\(.*\d{4}.*\)|[\[\(]\d+[\]\)]/.test(searchContext) ||
-                                   searchContext.includes('"');
-
-      const cited = hasQuotes || hasCitationMarkers || hasCitationInContext;
+      // Cited only if has quotes OR citation markers nearby
+      const cited = hasQuotationMarks || hasInTextCitation || hasCitationNearby;
 
       return {
         timestamp: event.timestamp,
