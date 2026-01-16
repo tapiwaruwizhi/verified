@@ -8,6 +8,7 @@ import SessionAnalysis from './pages/SessionAnalysis';
 import StudentEditor from './pages/StudentEditor';
 import StudentForensics from './pages/StudentForensics';
 import TeacherDashboard from './pages/TeacherDashboard';
+import StudentAssignments from './pages/StudentAssignments';
 import __Layout from './Layout.jsx';
 
 
@@ -22,6 +23,7 @@ export const PAGES = {
     "StudentEditor": StudentEditor,
     "StudentForensics": StudentForensics,
     "TeacherDashboard": TeacherDashboard,
+    "StudentAssignments": StudentAssignments,
 }
 
 export const pagesConfig = {
