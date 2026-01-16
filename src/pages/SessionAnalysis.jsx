@@ -65,8 +65,9 @@ export default function SessionAnalysis() {
   });
 
   const handleSaveGrade = () => {
-    if (!grade || grade < 0 || grade > 100) {
-      toast.error('Please enter a valid grade (0-100)');
+    const maxGrade = assignment?.max_grade || 100;
+    if (!grade || grade < 0 || grade > maxGrade) {
+      toast.error(`Please enter a valid grade (0-${maxGrade})`);
       return;
     }
     gradeMutation.mutate({ grade, feedback });
@@ -183,7 +184,7 @@ Generated: ${format(new Date(), 'PPpp')}
                 {session.grade !== undefined && session.grade !== null && (
                   <>
                     <span>•</span>
-                    <span className="font-semibold text-slate-900">Grade: {session.grade}%</span>
+                    <span className="font-semibold text-slate-900">Grade: {session.grade}/{assignment?.max_grade || 100}</span>
                   </>
                 )}
               </div>
@@ -207,15 +208,15 @@ Generated: ${format(new Date(), 'PPpp')}
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-1">
-                  <Label htmlFor="grade">Grade (0-100)</Label>
+                  <Label htmlFor="grade">Grade (Max: {assignment?.max_grade || 100})</Label>
                   <Input
                     id="grade"
                     type="number"
                     min="0"
-                    max="100"
+                    max={assignment?.max_grade || 100}
                     value={grade}
                     onChange={(e) => setGrade(e.target.value)}
-                    placeholder="85"
+                    placeholder={`${assignment?.max_grade || 100}`}
                     className="mt-2 text-2xl font-bold text-center"
                   />
                   <p className="text-xs text-slate-500 mt-2 text-center">
