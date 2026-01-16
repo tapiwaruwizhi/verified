@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Send } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 import { format, differenceInDays, isPast } from 'date-fns';
 import WritingCanvas from '../components/editor/WritingCanvas';
 import { toast } from 'sonner';
@@ -65,15 +66,21 @@ export default function StudentEditor() {
 
   const submitSessionMutation = useMutation({
     mutationFn: async () => {
+      // Get current session data first to ensure we have the latest final_text
+      const sessionData = await base44.entities.Session.filter({ id: currentSession.id });
+      const currentSessionData = sessionData[0];
+      
+      if (!currentSessionData?.final_text || currentSessionData.final_text.trim().length === 0) {
+        throw new Error('Cannot submit empty essay. Please write some content first.');
+      }
+
       // Calculate final metrics from events
       const events = await base44.entities.Event.filter({ session_id: currentSession.id });
       
       const pasteCount = events.filter(e => e.event_type === 'paste').length;
       const focusLostCount = events.filter(e => e.event_type === 'focus_lost').length;
       
-      // Get current session data for coherence score
-      const sessionData = await base44.entities.Session.filter({ id: currentSession.id });
-      const coherenceScore = sessionData[0]?.coherence_score || 100;
+      const coherenceScore = currentSessionData?.coherence_score || 100;
 
       // Calculate integrity score with strict paste penalties
       let integrityScore = 100;
@@ -111,6 +118,10 @@ export default function StudentEditor() {
       queryClient.invalidateQueries(['sessions']);
       setCurrentSession(null);
       setSelectedAssignment(null);
+      navigate(createPageUrl('MySubmissions'));
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to submit essay');
     }
   });
 
