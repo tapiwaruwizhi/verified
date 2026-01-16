@@ -21,6 +21,7 @@ export default function Assignments() {
     subject: 'English',
     grade_level: 'Grade 10',
     word_target: 500,
+    max_grade: 100,
     due_date: '',
     status: 'draft'
   });
@@ -71,6 +72,7 @@ export default function Assignments() {
       subject: 'English',
       grade_level: 'Grade 10',
       word_target: 500,
+      max_grade: 100,
       due_date: '',
       status: 'draft'
     });
@@ -94,6 +96,7 @@ export default function Assignments() {
       subject: assignment.subject,
       grade_level: assignment.grade_level,
       word_target: assignment.word_target,
+      max_grade: assignment.max_grade || 100,
       due_date: assignment.due_date ? assignment.due_date.split('T')[0] + 'T' + assignment.due_date.split('T')[1].substring(0,5) : '',
       status: assignment.status
     });
@@ -220,7 +223,7 @@ export default function Assignments() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="word_target">Target Word Count</Label>
                     <Input
@@ -229,6 +232,18 @@ export default function Assignments() {
                       value={formData.word_target}
                       onChange={(e) => setFormData({ ...formData, word_target: parseInt(e.target.value) })}
                       min="100"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="max_grade">Maximum Grade (Points)</Label>
+                    <Input
+                      id="max_grade"
+                      type="number"
+                      value={formData.max_grade}
+                      onChange={(e) => setFormData({ ...formData, max_grade: parseInt(e.target.value) })}
+                      min="1"
+                      max="100"
                     />
                   </div>
 
@@ -306,6 +321,14 @@ export default function Assignments() {
                       <span>{assignment.grade_level}</span>
                       <span>•</span>
                       <span>{assignment.word_target} words</span>
+                      <span>•</span>
+                      <span>{assignment.max_grade || 100} points</span>
+                      {assignment.due_date && (
+                        <>
+                          <span>•</span>
+                          <span>Due: {new Date(assignment.due_date).toLocaleDateString()}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-4">

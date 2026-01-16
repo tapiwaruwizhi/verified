@@ -28,8 +28,7 @@ export default function Layout({ children, currentPageName }) {
   ];
 
   const studentNavItems = [
-    { name: 'Courses', label: 'My Courses', icon: LayoutDashboard },
-    { name: 'StudentEditor', label: 'Write Essay', icon: FileText },
+    { name: 'StudentAssignments', label: 'Assignments', icon: FileText },
     { name: 'MySubmissions', label: 'Submissions', icon: Shield }
   ];
 
