@@ -5,10 +5,10 @@ import ManageCourses from './pages/ManageCourses';
 import MySubmissions from './pages/MySubmissions';
 import RevealRequests from './pages/RevealRequests';
 import SessionAnalysis from './pages/SessionAnalysis';
+import StudentAssignments from './pages/StudentAssignments';
 import StudentEditor from './pages/StudentEditor';
 import StudentForensics from './pages/StudentForensics';
 import TeacherDashboard from './pages/TeacherDashboard';
-import StudentAssignments from './pages/StudentAssignments';
 import __Layout from './Layout.jsx';
 
 
@@ -20,10 +20,10 @@ export const PAGES = {
     "MySubmissions": MySubmissions,
     "RevealRequests": RevealRequests,
     "SessionAnalysis": SessionAnalysis,
+    "StudentAssignments": StudentAssignments,
     "StudentEditor": StudentEditor,
     "StudentForensics": StudentForensics,
     "TeacherDashboard": TeacherDashboard,
-    "StudentAssignments": StudentAssignments,
 }
 
 export const pagesConfig = {

@@ -96,30 +96,22 @@ export default function WritingCanvas({ sessionId, onEventCapture, initialText =
     }
   };
 
-  const handlePaste = () => {
-    setTimeout(() => {
-      const editor = quillRef.current?.getEditor();
-      if (!editor) return;
-      
-      const selection = editor.getSelection();
-      if (!selection) return;
-      
-      const pastedText = editor.getText(selection.index, selection.length);
-      const wordCount = pastedText.split(/\s+/).filter(Boolean).length;
+  const handlePaste = (e) => {
+    const pastedText = e.clipboardData?.getData('text/plain') || '';
+    const wordCount = pastedText.split(/\s+/).filter(Boolean).length;
 
-      if (wordCount > 5) {
-        captureEvent('paste', { 
-          text: pastedText,
-          length: pastedText.length,
-          word_count: wordCount
-        });
+    if (wordCount > 5) {
+      captureEvent('paste', { 
+        text: pastedText,
+        length: pastedText.length,
+        word_count: wordCount
+      });
 
-        toast.warning('Paste Recorded. Please Cite.', {
-          description: `${wordCount} words detected. Add proper citations.`,
-          duration: 5000
-        });
-      }
-    }, 0);
+      toast.warning('Paste Recorded. Please Cite.', {
+        description: `${wordCount} words detected. Add proper citations.`,
+        duration: 5000
+      });
+    }
   };
 
   const handleChange = (content, delta, source, editor) => {
@@ -237,6 +229,7 @@ export default function WritingCanvas({ sessionId, onEventCapture, initialText =
         value={text}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
         modules={modules}
         formats={formats}
         placeholder="Begin writing your essay..."

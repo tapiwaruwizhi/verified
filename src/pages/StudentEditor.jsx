@@ -130,9 +130,24 @@ export default function StudentEditor() {
     createSessionMutation.mutate(assignment.id);
   };
 
-  const handleSubmit = () => {
-    if (confirm('Submit your essay? This action cannot be undone.')) {
+  const handleSubmit = async () => {
+    if (!confirm('Submit your essay? This action cannot be undone.')) {
+      return;
+    }
+    
+    // Force a final save before submitting
+    try {
+      const session = await base44.entities.Session.filter({ id: currentSession.id });
+      const currentData = session[0];
+      
+      if (!currentData?.final_text || currentData.word_count < 10) {
+        toast.error('Please write at least 10 words before submitting.');
+        return;
+      }
+      
       submitSessionMutation.mutate();
+    } catch (error) {
+      toast.error('Failed to verify essay. Please try again.');
     }
   };
 
