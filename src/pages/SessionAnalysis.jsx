@@ -88,7 +88,10 @@ export default function SessionAnalysis() {
     const relevantEvents = events.filter(e => e.timestamp <= currentTimelinePosition);
     if (relevantEvents.length > 0) {
       const lastEvent = relevantEvents[relevantEvents.length - 1];
-      setDisplayedText(lastEvent.text_snapshot || session?.final_text || '');
+      const snapshot = lastEvent.text_snapshot || session?.final_text || '';
+      // Strip HTML tags from ReactQuill content
+      const strippedText = snapshot.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
+      setDisplayedText(strippedText);
     } else {
       setDisplayedText('');
     }
@@ -268,9 +271,12 @@ Generated: ${format(new Date(), 'PPpp')}
               <CardContent className="p-6">
                 <div className="prose prose-sm max-w-none">
                   <div className="bg-slate-50 rounded-lg p-6 max-h-96 overflow-y-auto">
-                    <p className="whitespace-pre-wrap text-slate-700 leading-relaxed font-serif">
-                      {displayedText || session.final_text}
-                    </p>
+                    <div 
+                      className="text-slate-700 leading-relaxed font-serif"
+                      dangerouslySetInnerHTML={{ 
+                        __html: displayedText || session.final_text 
+                      }}
+                    />
                   </div>
                 </div>
                 <div className="mt-4 flex items-center justify-between text-sm text-slate-600">

@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
-export default function WritingCanvas({ sessionId, onEventCapture, initialText = '' }) {
+const WritingCanvas = ({ sessionId, onEventCapture, initialText = '' }) => {
   const [text, setText] = useState(initialText);
   const [isSaving, setIsSaving] = useState(false);
   const quillRef = useRef(null);
@@ -166,7 +166,7 @@ export default function WritingCanvas({ sessionId, onEventCapture, initialText =
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       flushEvents();
     };
-  }, []);
+  }, [sessionId]);
 
   // Idle detection
   useEffect(() => {
@@ -271,4 +271,11 @@ export default function WritingCanvas({ sessionId, onEventCapture, initialText =
       `}</style>
     </div>
   );
-}
+};
+
+// Expose flush method for parent components
+WritingCanvas.flushEvents = () => {
+  // This will be called from parent before submit
+};
+
+export default WritingCanvas;

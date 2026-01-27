@@ -135,6 +135,9 @@ export default function StudentEditor() {
       return;
     }
     
+    // Wait for any pending saves
+    await new Promise(resolve => setTimeout(resolve, 2500));
+    
     // Force a final save before submitting
     try {
       const session = await base44.entities.Session.filter({ id: currentSession.id });
