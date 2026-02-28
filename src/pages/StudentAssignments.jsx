@@ -1,178 +1,270 @@
-import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { FileText, Calendar, Award, BookOpen, Clock, CheckCircle } from 'lucide-react';
-import { format, isPast, differenceInDays } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
+import React from "react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  FileText,
+  Calendar,
+  Award,
+  BookOpen,
+  CheckCircle,
+} from "lucide-react"
+import { format, isPast, differenceInDays } from "date-fns"
+import { useNavigate } from "react-router-dom"
+import { createPageUrl } from "@/utils"
+import { useAuth } from "@/lib/AuthContext"
+import { apiFetch } from "@/lib/api"
 
 export default function StudentAssignments() {
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
 
-  React.useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => navigate(createPageUrl('Home')));
-  }, []);
+  /* ---------------- Queries ---------------- */
 
-  const { data: assignments = [], isLoading: loadingAssignments } = useQuery({
-    queryKey: ['assignments'],
-    queryFn: () => base44.entities.Assignment.filter({ status: 'active' }),
-    enabled: !!user
-  });
+  const { data: assignments = [], isLoading } = useQuery({
+    queryKey: ["assignments"],
+    queryFn: () => apiFetch("/assignments?status=active"),
+    enabled: !!user,
+  })
 
   const { data: courses = [] } = useQuery({
-    queryKey: ['courses'],
-    queryFn: () => base44.entities.Course.list()
-  });
+    queryKey: ["courses"],
+    queryFn: () => apiFetch("/courses"),
+  })
 
   const { data: sessions = [] } = useQuery({
-    queryKey: ['my-sessions'],
-    queryFn: () => base44.entities.Session.filter({ student_email: user.email }),
-    enabled: !!user
-  });
+    queryKey: ["my-sessions"],
+    queryFn: () => apiFetch(`/sessions?studentEmail=${user.email}`),
+    enabled: !!user,
+  })
+
+  /* ---------------- Helpers ---------------- */
+
+  const getCourse = (courseId) =>
+    courses.find((c) => c.id === courseId)
 
   const getAssignmentStatus = (assignment) => {
-    const session = sessions.find(s => s.assignment_id === assignment.id);
-    if (session?.status === 'submitted' || session?.status === 'reviewed') {
-      return { status: 'submitted', session };
-    }
-    if (session?.status === 'in_progress') {
-      return { status: 'in_progress', session };
-    }
-    if (assignment.due_date && isPast(new Date(assignment.due_date))) {
-      return { status: 'overdue', session: null };
-    }
-    return { status: 'available', session: null };
-  };
+    const session = sessions.find(
+      (s) => s.assignmentId === assignment.id
+    )
 
-  const getCourse = (courseId) => courses.find(c => c.id === courseId);
+    if (session?.status === "submitted" || session?.status === "reviewed")
+      return { status: "submitted", session }
 
-  const startAssignment = async (assignment) => {
-    const session = await base44.entities.Session.create({
-      assignment_id: assignment.id,
-      student_email: user.email,
-      student_name: user.full_name,
-      start_time: new Date().toISOString(),
-      status: 'in_progress'
-    });
-    navigate(createPageUrl('StudentEditor') + `?assignment_id=${assignment.id}`);
-  };
+    if (session?.status === "in_progress")
+      return { status: "in_progress", session }
+
+    if (assignment.dueDate && isPast(new Date(assignment.dueDate)))
+      return { status: "overdue", session: null }
+
+    return { status: "available", session: null }
+  }
+
+  /* ---------------- Mutations ---------------- */
+
+  const createSessionMutation = useMutation({
+    mutationFn: (assignment) =>
+      apiFetch("/sessions", {
+        method: "POST",
+        body: JSON.stringify({
+          assignmentId: assignment.id,
+          studentEmail: user.email,
+          studentName: user.fullName,
+          startTime: new Date().toISOString(),
+          status: "in_progress",
+        }),
+      }),
+    onSuccess: (_, assignment) => {
+      queryClient.invalidateQueries({ queryKey: ["my-sessions"] })
+      navigate(
+        createPageUrl("StudentEditor") +
+          `?assignment=${assignment.id}`
+      )
+    },
+  })
+
+  const startAssignment = (assignment) => {
+    createSessionMutation.mutate(assignment)
+  }
 
   const continueAssignment = (session) => {
-    navigate(createPageUrl('StudentEditor') + `?assignment_id=${session.assignment_id}`);
-  };
+    navigate(
+      createPageUrl("StudentEditor") +
+        `?assignment=${session.assignmentId}`
+    )
+  }
 
-  if (!user) return null;
+  if (!user) return null
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">My Assignments</h1>
-          <p className="text-slate-600">View and complete your writing assignments</p>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">
+            My Assignments
+          </h1>
+          <p className="text-slate-600">
+            View and complete your writing assignments
+          </p>
         </div>
 
-        {loadingAssignments ? (
+        {isLoading ? (
           <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 mx-auto" />
           </div>
         ) : assignments.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <FileText className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-              <p className="text-slate-600">No assignments available yet</p>
+              <p className="text-slate-600">
+                No assignments available yet
+              </p>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-4">
-            {assignments.map(assignment => {
-              const { status, session } = getAssignmentStatus(assignment);
-              const course = getCourse(assignment.course_id);
-              const daysUntilDue = assignment.due_date ? differenceInDays(new Date(assignment.due_date), new Date()) : null;
+            {assignments.map((assignment) => {
+              const { status, session } =
+                getAssignmentStatus(assignment)
+
+              const course = getCourse(
+                assignment.courseId
+              )
+
+              const daysUntilDue = assignment.dueDate
+                ? differenceInDays(
+                    new Date(assignment.dueDate),
+                    new Date()
+                  )
+                : null
 
               return (
-                <Card key={assignment.id} className="hover:shadow-lg transition-shadow">
+                <Card
+                  key={assignment.id}
+                  className="hover:shadow-lg transition-shadow"
+                >
                   <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
+                    <div className="flex justify-between">
+                      <div>
+                        <div className="flex gap-2 mb-2">
                           {course && (
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline">
                               <BookOpen className="w-3 h-3 mr-1" />
                               {course.name}
                             </Badge>
                           )}
-                          {status === 'submitted' && (
+
+                          {status === "submitted" && (
                             <Badge className="bg-green-100 text-green-800">
                               <CheckCircle className="w-3 h-3 mr-1" />
                               Submitted
                             </Badge>
                           )}
-                          {status === 'in_progress' && (
+
+                          {status === "in_progress" && (
                             <Badge className="bg-blue-100 text-blue-800">
                               In Progress
                             </Badge>
                           )}
-                          {status === 'overdue' && (
+
+                          {status === "overdue" && (
                             <Badge className="bg-red-100 text-red-800">
                               Overdue
                             </Badge>
                           )}
                         </div>
-                        <CardTitle className="text-xl mb-1">{assignment.title}</CardTitle>
-                        <CardDescription className="line-clamp-2">
+
+                        <CardTitle className="text-xl mb-1">
+                          {assignment.title}
+                        </CardTitle>
+
+                        <CardDescription>
                           {assignment.prompt}
                         </CardDescription>
                       </div>
-                      <div className="flex flex-col items-end gap-2 ml-4">
-                        <Badge className="bg-purple-100 text-purple-800">
-                          <Award className="w-3 h-3 mr-1" />
-                          {assignment.max_grade || 100} pts
-                        </Badge>
-                      </div>
+
+                      <Badge className="bg-purple-100 text-purple-800">
+                        <Award className="w-3 h-3 mr-1" />
+                        {assignment.maxGrade || 100} pts
+                      </Badge>
                     </div>
                   </CardHeader>
+
                   <CardContent>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-6 text-sm text-slate-600">
-                        {assignment.due_date && (
-                          <div className="flex items-center gap-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex gap-6 text-sm text-slate-600">
+                        {assignment.dueDate && (
+                          <div className="flex gap-2 items-center">
                             <Calendar className="w-4 h-4" />
-                            <span>Due {format(new Date(assignment.due_date), 'MMM d, yyyy')}</span>
-                            {daysUntilDue !== null && daysUntilDue >= 0 && (
-                              <Badge variant="outline" className="text-xs">
-                                {daysUntilDue === 0 ? 'Today' : `${daysUntilDue}d left`}
+                            Due{" "}
+                            {format(
+                              new Date(assignment.dueDate),
+                              "MMM d, yyyy"
+                            )}
+                            {daysUntilDue >= 0 && (
+                              <Badge variant="outline">
+                                {daysUntilDue === 0
+                                  ? "Today"
+                                  : `${daysUntilDue}d left`}
                               </Badge>
                             )}
                           </div>
                         )}
-                        <div className="flex items-center gap-2">
+
+                        <div className="flex gap-2 items-center">
                           <FileText className="w-4 h-4" />
-                          <span>{assignment.word_target} words</span>
+                          {assignment.wordTarget} words
                         </div>
+
                         {session?.grade !== undefined && (
-                          <div className="flex items-center gap-2 font-medium text-slate-900">
+                          <div className="flex gap-2 font-medium">
                             <Award className="w-4 h-4" />
-                            <span>Grade: {session.grade}/{assignment.max_grade || 100}</span>
+                            Grade: {session.grade}/
+                            {assignment.maxGrade || 100}
                           </div>
                         )}
                       </div>
-                      <div className="flex gap-2">
-                        {status === 'available' && (
-                          <Button onClick={() => startAssignment(assignment)}>
+
+                      <div>
+                        {status === "available" && (
+                          <Button
+                            onClick={() =>
+                              startAssignment(assignment)
+                            }
+                          >
                             Start Assignment
                           </Button>
                         )}
-                        {status === 'in_progress' && (
-                          <Button onClick={() => continueAssignment(session)}>
+
+                        {status === "in_progress" && (
+                          <Button
+                            onClick={() =>
+                              continueAssignment(session)
+                            }
+                          >
                             Continue Writing
                           </Button>
                         )}
-                        {status === 'submitted' && (
-                          <Button variant="outline" onClick={() => navigate(createPageUrl('MySubmissions'))}>
+
+                        {status === "submitted" && (
+                          <Button
+                            variant="outline"
+                            onClick={() =>
+                              navigate(
+                                createPageUrl(
+                                  "MySubmissions"
+                                )
+                              )
+                            }
+                          >
                             View Submission
                           </Button>
                         )}
@@ -180,11 +272,11 @@ export default function StudentAssignments() {
                     </div>
                   </CardContent>
                 </Card>
-              );
+              )
             })}
           </div>
         )}
       </div>
     </div>
-  );
+  )
 }

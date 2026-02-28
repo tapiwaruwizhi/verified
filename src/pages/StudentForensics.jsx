@@ -1,73 +1,87 @@
-import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, Lock } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
-import { format } from 'date-fns';
-import IntegrityBadge from '../components/analytics/IntegrityBadge';
-import TimelinePlayer from '../components/analytics/TimelinePlayer';
-import WPMGraph from '../components/analytics/WPMGraph';
+import React, { useState, useEffect } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { ArrowLeft, Lock } from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { createPageUrl } from "@/utils"
+import { format } from "date-fns"
+import IntegrityBadge from "../components/analytics/IntegrityBadge"
+import TimelinePlayer from "../components/analytics/TimelinePlayer"
+import WPMGraph from "../components/analytics/WPMGraph"
+import { useAuth } from "@/lib/AuthContext"
+import { apiFetch } from "@/lib/api"
 
 export default function StudentForensics() {
-  const navigate = useNavigate();
-  const [sessionId, setSessionId] = useState(null);
-  const [user, setUser] = useState(null);
-  const [currentTimelinePosition, setCurrentTimelinePosition] = useState(0);
-  const [displayedText, setDisplayedText] = useState('');
+  const navigate = useNavigate()
+  const { user } = useAuth()
+
+  const [sessionId, setSessionId] = useState(null)
+  const [currentTimelinePosition, setCurrentTimelinePosition] = useState(0)
+  const [displayedText, setDisplayedText] = useState("")
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setSessionId(params.get('id'));
-    base44.auth.me().then(setUser).catch(() => navigate(createPageUrl('Home')));
-  }, []);
+    const params = new URLSearchParams(window.location.search)
+    setSessionId(params.get("id"))
+  }, [])
 
+  // Session
   const { data: session } = useQuery({
-    queryKey: ['session', sessionId],
-    queryFn: () => base44.entities.Session.filter({ id: sessionId }).then(r => r[0]),
-    enabled: !!sessionId
-  });
+    queryKey: ["session", sessionId],
+    queryFn: () => apiFetch(`/sessions/${sessionId}`),
+    enabled: !!sessionId,
+  })
 
+  // Events
   const { data: events = [] } = useQuery({
-    queryKey: ['events', sessionId],
-    queryFn: () => base44.entities.Event.filter({ session_id: sessionId }, 'timestamp'),
-    enabled: !!sessionId
-  });
+    queryKey: ["events", sessionId],
+    queryFn: () => apiFetch(`/events?sessionId=${sessionId}`),
+    enabled: !!sessionId,
+  })
 
+  // Reveal request
   const { data: revealRequest } = useQuery({
-    queryKey: ['reveal-request', sessionId, user?.email],
-    queryFn: () => base44.entities.RevealRequest.filter({ 
-      session_id: sessionId, 
-      student_email: user.email 
-    }).then(r => r[0]),
-    enabled: !!sessionId && !!user
-  });
+    queryKey: ["reveal-request", sessionId, user?.email],
+    queryFn: () =>
+      apiFetch(
+        `/reveal-requests?sessionId=${sessionId}&studentEmail=${user.email}`
+      ).then((r) => r[0]),
+    enabled: !!sessionId && !!user,
+  })
 
-  // Security check
-  const hasAccess = session && user && 
-    session.student_email === user.email && 
-    revealRequest?.status === 'approved';
+  const hasAccess =
+    session &&
+    user &&
+    session.studentEmail === user.email &&
+    revealRequest?.status === "approved"
 
   useEffect(() => {
-    if (!events.length) return;
+    if (!events.length) return
 
-    const relevantEvents = events.filter(e => e.timestamp <= currentTimelinePosition);
+    const relevantEvents = events.filter(
+      (e) => e.timestamp <= currentTimelinePosition
+    )
+
     if (relevantEvents.length > 0) {
-      const lastEvent = relevantEvents[relevantEvents.length - 1];
-      setDisplayedText(lastEvent.text_snapshot || session?.final_text || '');
+      const lastEvent = relevantEvents[relevantEvents.length - 1]
+      setDisplayedText(lastEvent.textSnapshot || session?.finalText || "")
     } else {
-      setDisplayedText('');
+      setDisplayedText("")
     }
-  }, [currentTimelinePosition, events, session]);
+  }, [currentTimelinePosition, events, session])
 
-  const sessionDuration = session?.end_time && session?.start_time
-    ? new Date(session.end_time) - new Date(session.start_time)
-    : 0;
+const sessionDuration =
+  session?.endTime && session?.startTime
+    ? new Date(session.endTime).getTime() -
+      new Date(session.startTime).getTime()
+    : 0
 
   if (!session || !user) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        Loading...
+      </div>
+    )
   }
 
   if (!hasAccess) {
@@ -78,21 +92,27 @@ export default function StudentForensics() {
             <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Lock className="w-8 h-8 text-rose-600" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Access Denied</h2>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">
+              Access Denied
+            </h2>
             <p className="text-slate-600 mb-6">
-              {revealRequest?.status === 'pending' 
-                ? 'Your request is pending teacher approval.'
-                : revealRequest?.status === 'denied'
-                ? 'Your request to view forensic data was denied.'
-                : 'You need teacher approval to view forensic recordings.'}
+              {revealRequest?.status === "pending"
+                ? "Your request is pending teacher approval."
+                : revealRequest?.status === "denied"
+                ? "Your request was denied."
+                : "You need teacher approval to view forensic recordings."}
             </p>
-            <Button onClick={() => navigate(createPageUrl('MySubmissions'))}>
+            <Button
+              onClick={() =>
+                navigate(createPageUrl("MySubmissions"))
+              }
+            >
               Back to Submissions
             </Button>
           </CardContent>
         </Card>
       </div>
-    );
+    )
   }
 
   return (
@@ -101,28 +121,33 @@ export default function StudentForensics() {
         <div className="max-w-7xl mx-auto">
           <Button
             variant="ghost"
-            onClick={() => navigate(createPageUrl('MySubmissions'))}
+            onClick={() =>
+              navigate(createPageUrl("MySubmissions"))
+            }
             className="flex items-center gap-2 mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Submissions
           </Button>
-          
+
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 mb-2">My Writing Process</h1>
+              <h1 className="text-2xl font-bold text-slate-900 mb-2">
+                My Writing Process
+              </h1>
               <div className="flex items-center gap-4 text-sm text-slate-600">
-                <span>Submitted {format(new Date(session.end_time), 'PPp')}</span>
+                <span>
+                  Submitted {format(new Date(session.endTime), "PPp")}
+                </span>
               </div>
             </div>
-            <IntegrityBadge score={session.integrity_score} size="lg" />
+            <IntegrityBadge score={session.integrityScore} size="lg" />
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-6">
         <div className="grid grid-cols-1 gap-6">
-          {/* Final Document */}
           <Card className="shadow-md">
             <CardHeader className="border-b border-slate-100">
               <CardTitle className="text-lg">Final Document</CardTitle>
@@ -130,20 +155,23 @@ export default function StudentForensics() {
             <CardContent className="p-6">
               <div className="bg-slate-50 rounded-lg p-6 max-h-96 overflow-y-auto">
                 <p className="whitespace-pre-wrap text-slate-700 leading-relaxed font-serif">
-                  {displayedText || session.final_text}
+                  {displayedText || session.finalText}
                 </p>
               </div>
               <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
-                <span>{session.word_count} words</span>
-                <span>{Math.round(session.net_writing_time / 60)} minutes</span>
+                <span>{session.wordCount} words</span>
+                <span>
+                  {Math.round(session.netWritingTime / 60)} minutes
+                </span>
               </div>
             </CardContent>
           </Card>
 
-          {/* Timeline */}
           <Card className="shadow-md">
             <CardHeader className="border-b border-slate-100">
-              <CardTitle className="text-lg">Session Timeline</CardTitle>
+              <CardTitle className="text-lg">
+                Session Timeline
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               <TimelinePlayer
@@ -154,14 +182,16 @@ export default function StudentForensics() {
             </CardContent>
           </Card>
 
-          {/* WPM Graph */}
           <Card className="shadow-md">
             <CardContent className="p-6">
-              <WPMGraph events={events} sessionDuration={sessionDuration} />
+              <WPMGraph
+                events={events}
+                sessionDuration={sessionDuration}
+              />
             </CardContent>
           </Card>
         </div>
       </div>
     </div>
-  );
+  )
 }
